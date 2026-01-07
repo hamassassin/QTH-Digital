@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------------#
 #
-# A module which contains frequently used functions for now
+# A module which contains frequently used functions for now.
 #
 #----------------------------------------------------------------------------#
 
