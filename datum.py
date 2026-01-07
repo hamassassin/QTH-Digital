@@ -160,6 +160,6 @@ def send_pushover(notify = None):
                        "token": os.getenv('PUSHOVER_TOKEN'),
                        "user": os.getenv('PUSHOVER_USER'),
                        "sound": 'gamelan',
-                       "message": "\n".join(notify),
+                       "message": "\n\n".join(notify),
              }), {"Content-type": "application/x-www-form-urlencoded"})
   conn.getresponse() # Check response at some point

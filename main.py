@@ -32,10 +32,10 @@
 #       contains the secrets.  Remember, if in git, add .gitignore that
 #       includes .env in it, don't want secrets in git!
 #
-#   PUSHOVER_TOKEN
-#   PUSHOVER_USER
-#   QRZ_USERNAME
-#   QRZ_PASSWORD
+#   PUSHOVER_TOKEN=REPLACE_WITH_TOKEN
+#   PUSHOVER_USER=REPLACE_WITH_USER
+#   QRZ_USERNAME=REPLACE WITH USERNAME
+#   QRZ_PASSWORD=REPLACE WITH PASSWORD
 #
 # Also, the file datum.py includes helper functions and definitions
 #
@@ -43,7 +43,6 @@
 # https://pota.app/all_parks.csv
 #
 #----------------------------------------------------------------------#
-
 
 from datetime import datetime, timedelta, timezone
 import time
@@ -74,6 +73,9 @@ spots_found = [
 
 # Well, do we have any spots in our filtered list?
 if( spots_found ):
+
+  # Sort our lists of spots by time so we can see the most recent first
+  spots_found.sort(key=lambda x: x.SpotTime, reverse=True)
 
   # An array to hold our notification text, one entry per spot
   notify = []
