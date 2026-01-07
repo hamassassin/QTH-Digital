@@ -4,7 +4,6 @@
 #
 #----------------------------------------------------------------------------#
 
-
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, Field # pydantic: https://docs.pydantic.dev/latest/
 import requests
