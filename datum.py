@@ -129,24 +129,22 @@ def get_qrz_callsign_info(callsign, qrz_key):
     headers={"Accept": "application/xml"},
     timeout=10
   )
-  response.raise_for_status()
+  if response.status_code == 200:
+    root = ET.fromstring(response.content)
+    first_name = root.findtext(".//qrz:fname", namespaces=QRZ_NS)
+    last_name = root.findtext(".//qrz:name", namespaces=QRZ_NS)
+    trustee = root.findtext(".//qrz:trustee", namespaces=QRZ_NS)
 
-  if not response.text:
-    return "Not Found"
-
-  root = ET.fromstring(response.content)
-  first_name = root.findtext(".//qrz:fname", namespaces=QRZ_NS)
-  last_name = root.findtext(".//qrz:name", namespaces=QRZ_NS)
-  trustee = root.findtext(".//qrz:trustee", namespaces=QRZ_NS)
-
-  # Note that not all callsign lookups contain both the fname and name
-  # for example, look at W4SPF
-  if first_name and last_name:
-    return f"{first_name} {last_name}"
-  elif trustee:
-    return trustee
+    # Note that not all callsign lookups contain both the fname and name
+    # for example, look at W4SPF
+    if first_name and last_name:
+      return f"{first_name} {last_name}"
+    elif trustee:
+      return trustee
+    else:
+      return "Not Found"
   else:
-    return "Not Found"
+    return f"ERROR: {response.status_code}: {response.reason}"
 
 # Sends a Pushover notification, note that the secrets need to be
 # stored in the .env file.
@@ -163,4 +161,6 @@ def send_pushover(notify = None):
                        "sound": 'gamelan',
                        "message": "\n\n".join(notify),
              }), {"Content-type": "application/x-www-form-urlencoded"})
-  conn.getresponse() # Check response at some point
+  response = conn.getresponse()
+  if response.status != 200:
+    print(f"ERROR: {response.status}: {response.reason}")

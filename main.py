@@ -1,5 +1,4 @@
 #----------------------------------------------------------------------#
-#
 # Purpose:
 #   Wanted to dive into Python, so I took the following as my first
 #   project:
@@ -43,7 +42,6 @@
 # https://pota.app/all_parks.csv
 #
 # NOTE: There is next to no error checking going on.
-#
 #----------------------------------------------------------------------#
 
 # Modules of interest
@@ -52,53 +50,77 @@ import time
 import requests # https://pypi.org/project/requests/
 from typing import List, Set
 import datum # Import datum.py
+import logging
+logger = logging.getLogger(__name__)
 
-# Make our reqeust to the activator spot service, trap for errors later
+logging.basicConfig(
+    filename='pota_search.log',
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+
+#logging.basicConfig(filename='myapp.log', level=logging.INFO)
+logger.info('--> Search Started')
+
+
+# Make a GET reqeust to the activator spot service
 pota_response = requests.get("https://api.pota.app/spot/activator/")
-pota_response.raise_for_status()  # Raise exception for HTTP errors
 
-# Get a list of PotaSpots and make sure it is a list
-spots:List[datum.PotaSpots] = [datum.PotaSpots(**spot) for spot in pota_response.json()]
+# Make sure we were successful in our GET
+if pota_response.status_code == 200:
 
-# Our search criteria
-needed_states = {datum.USState.US_RI, datum.USState.US_HI, datum.USState.US_FL, datum.USState.US_OH}
-wanted_modes = {datum.Mode.FT4, datum.Mode.FT8}
-now = datetime.now(timezone.utc) # Recall that POTA uses GMT (UTC 0) so adjust our current datetime to that
-cutoff = now - timedelta(minutes=5) # Interested in spots that happened within the last 5 minutes
+  # GPut our response in a List
+  spots:List[datum.PotaSpots] = [datum.PotaSpots(**spot) for spot in pota_response.json()]
 
-# Filter down the complete POTA spot list to include only those we are interested in
-spots_found = [
-    s for s in spots
-    if s.Location in needed_states and
-       s.Mode in wanted_modes and
-       datum._ensure_aware(s.SpotTime) >= cutoff
-]
+  # Our search criteria
+  needed_states = {datum.USState.US_RI, datum.USState.US_HI, datum.USState.US_FL, datum.USState.US_CO,"VG-VG"}
+  wanted_modes = {datum.Mode.FT4, datum.Mode.FT8}
+  now = datetime.now(timezone.utc) # Recall that POTA uses GMT (UTC 0) so adjust our current datetime to that
+  cutoff = now - timedelta(minutes=5) # Interested in spots that happened within the last 5 minutes
 
-# Well, do we have any spots in our filtered list?
-if( spots_found ):
+  # Filter down the complete POTA spot list to include only those we are interested in
+  spots_found = [
+      s for s in spots
+      if s.Location in needed_states and
+         s.Mode in wanted_modes and
+         datum._ensure_aware(s.SpotTime) >= cutoff
+  ]
 
-  # Sort our lists of spots by time descending so we can see the most recent first
-  spots_found.sort(key=lambda x: x.SpotTime, reverse=True)
+  # Well, do we have any spots in our filtered list?
+  if spots_found:
 
-  # An array to hold our notification text, one entry per spot
-  notify = []
+    # Sort our lists of spots by time descending so we can see the most recent first
+    spots_found.sort(key=lambda x: x.SpotTime, reverse=True)
 
-  # Grab our key for the QRZ API call, no need to grab it repeatedly
-  # Will need to store this key as it's good for 24-hours
-  qrz_key = datum.get_qrz_key()
+    # An empty list to hold our individual spots notifications
+    spots_detail = []
 
-  # Piece together our notification
-  for spot_found in spots_found:
-    # Handle this better as we are getting a naive datetime from the POTA API so fix that
-    difference = now - datum._ensure_aware(spot_found.SpotTime)
-    notify.append(
-      f"[{spot_found.Location} {spot_found.Mode} "
-      f"{spot_found.Reference}] "
-      f"{spot_found.Activator}, "
-      f"{datum.get_qrz_callsign_info(spot_found.Activator, qrz_key)}, "
-      f"was at {spot_found.Name} "
-      f"on {datum.get_ham_band(spot_found.Frequency)} (-"
-      f"{time.strftime("%M:%S", time.gmtime(difference.total_seconds()))})" )
+    # Grab our key for the QRZ API call, no need to grab it repeatedly
+    # Will need to store this key as it's good for 24-hours
+    qrz_key = datum.get_qrz_key()
 
-  # Send off our Pushover notification
-  datum.send_pushover(notify)
+    # Piece together our notification
+    for spot_found in spots_found:
+      # Handle this better as we are getting a naive datetime from the POTA API so fix that
+      difference = now - datum._ensure_aware(spot_found.SpotTime)
+      spots_detail.append(
+        f"[{spot_found.Location} {spot_found.Mode} "
+        f"{spot_found.Reference}] "
+        f"{spot_found.Activator}, "
+        f"{datum.get_qrz_callsign_info(spot_found.Activator, qrz_key)}, "
+        f"was at {spot_found.Name} "
+        f"on {datum.get_ham_band(spot_found.Frequency)} (-"
+        f"{time.strftime("%M:%S", time.gmtime(difference.total_seconds()))})")
+      logger.info(spots_detail[-1]);
+
+    # Send off our Pushover notification
+    datum.send_pushover(spots_detail)
+  else:
+    logger.info('No spots found')
+
+# Ruh-roh Scooby, we couldn't GET the data
+else:
+  print(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
+  logger.error(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
+
+logger.info('--> Search Finished')
