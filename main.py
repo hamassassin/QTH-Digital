@@ -51,6 +51,11 @@ import requests # https://pypi.org/project/requests/
 from typing import List, Set
 import datum # Import datum.py
 import logging
+
+# Constants
+POTA_SEARCH_MINUTES = int(10)
+
+
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(
@@ -58,10 +63,7 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
-
-#logging.basicConfig(filename='myapp.log', level=logging.INFO)
-logger.info('--> Search Started')
-
+logger.info('-----------------------------------------------------')
 
 # Make a GET reqeust to the activator spot service
 pota_response = requests.get("https://api.pota.app/spot/activator/")
@@ -72,11 +74,14 @@ if pota_response.status_code == 200:
   # GPut our response in a List
   spots:List[datum.PotaSpots] = [datum.PotaSpots(**spot) for spot in pota_response.json()]
 
+  logger.info(f"Found a total of {len(spots)} unfiltered spots")
+
   # Our search criteria
-  needed_states = {datum.USState.US_RI, datum.USState.US_HI, datum.USState.US_FL, datum.USState.US_CO,"VG-VG"}
+  needed_states = {datum.USState.US_RI, datum.USState.US_HI}
   wanted_modes = {datum.Mode.FT4, datum.Mode.FT8}
   now = datetime.now(timezone.utc) # Recall that POTA uses GMT (UTC 0) so adjust our current datetime to that
-  cutoff = now - timedelta(minutes=5) # Interested in spots that happened within the last 5 minutes
+  # Interested in spots that happened within the last POTA_SEARCH_MINUTES
+  cutoff = now - timedelta(minutes=POTA_SEARCH_MINUTES)
 
   # Filter down the complete POTA spot list to include only those we are interested in
   spots_found = [
@@ -85,6 +90,8 @@ if pota_response.status_code == 200:
          s.Mode in wanted_modes and
          datum._ensure_aware(s.SpotTime) >= cutoff
   ]
+
+  logger.info(f"Found {len(spots_found)} spots matching search criteria")
 
   # Well, do we have any spots in our filtered list?
   if spots_found:
@@ -115,12 +122,11 @@ if pota_response.status_code == 200:
 
     # Send off our Pushover notification
     datum.send_pushover(spots_detail)
-  else:
-    logger.info('No spots found')
 
 # Ruh-roh Scooby, we couldn't GET the data
 else:
   print(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
   logger.error(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
 
-logger.info('--> Search Finished')
+logger.info('-----------------------------------------------------')
+logger.info('')
