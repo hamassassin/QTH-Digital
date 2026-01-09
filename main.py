@@ -51,9 +51,8 @@ import requests # https://pypi.org/project/requests/
 from typing import List, Set
 import datum # Import datum.py
 import logging
+import constants
 
-# Constants
-POTA_SEARCH_MINUTES = int(10)
 
 
 logger = logging.getLogger(__name__)
@@ -81,7 +80,7 @@ if pota_response.status_code == 200:
   wanted_modes = {datum.Mode.FT4, datum.Mode.FT8}
   now = datetime.now(timezone.utc) # Recall that POTA uses GMT (UTC 0) so adjust our current datetime to that
   # Interested in spots that happened within the last POTA_SEARCH_MINUTES
-  cutoff = now - timedelta(minutes=POTA_SEARCH_MINUTES)
+  cutoff = now - timedelta(minutes=constants.POTA_SEARCH_MINUTES)
 
   # Filter down the complete POTA spot list to include only those we are interested in
   spots_found = [
@@ -91,7 +90,10 @@ if pota_response.status_code == 200:
          datum._ensure_aware(s.SpotTime) >= cutoff
   ]
 
-  logger.info(f"Found {len(spots_found)} spots matching search criteria")
+  if len(spots_found) == 1:
+    logger.info(f"Found 1 spot matching search criteria")
+  else:
+    logger.info(f"Found {len(spots_found)} spots matching search criteria")
 
   # Well, do we have any spots in our filtered list?
   if spots_found:
