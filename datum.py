@@ -5,7 +5,8 @@
 #----------------------------------------------------------------------------#
 
 # Modules needed
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time, date
+import shelve
 from pydantic import BaseModel, Field # pydantic: https://docs.pydantic.dev/latest/
 import requests
 import ssl
@@ -16,6 +17,29 @@ from dotenv import load_dotenv
 import os
 import xml.etree.ElementTree as ET
 from enum import Enum
+import logging
+
+
+# The QRZ callsign API
+def get_qrz_callsign_key():
+  today = date.today()
+  with shelve.open(filename='qrz', flag='c') as db:
+    # Create our keys if one or both are missing
+    if 'qrz_key_date' not in db or 'qrz_key_value' not in db:
+      db["qrz_key_date"] = today
+      db["qrz_key_value"] = get_qrz_key()
+      logger.info("QRZ: Key Date and Key Value created as no db")
+    else:
+      # See if we have to update our key or not
+      if db["qrz_key_date"] != today:
+        logger.info(f"QRZ: key_value updated as day changed from {db["qrz_key_date"]} to {today}")
+        db["qrz_key_date"] = today
+        db["qrz_key_value"] = get_qrz_key()
+      else:
+        logger.info("QRZ: No change for key_value as still on same day")
+    return db["qrz_key_value"]
+
+
 
 # Load variables from .env file, these are our "secrets" for accessing APIs
 load_dotenv()

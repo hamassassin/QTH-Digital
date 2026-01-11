@@ -40,7 +40,6 @@
 #
 # All parks in CSV, make a service out of this at some point
 # https://pota.app/all_parks.csv
-#
 # NOTE: There is next to no error checking going on.
 #----------------------------------------------------------------------#
 
@@ -48,21 +47,18 @@
 from datetime import datetime, timedelta, timezone
 import time
 import requests # https://pypi.org/project/requests/
-from typing import List, Set
+from typing import List
 import datum # Import datum.py
-import logging
 import constants
+import shelve
+import myLogger
+
+#with shelve.open(filename='qrz', flag='r') as db:
+#  print(db["qrz_key_date"] )
+#  print(db["qrz_key_value"] )
 
 
-
-logger = logging.getLogger(__name__)
-
-logging.basicConfig(
-    filename='pota_search.log',
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
-logger.info('-----------------------------------------------------')
+myLogger.logger.info('----------------------------------------------------------------------')
 
 # Make a GET reqeust to the activator spot service
 pota_response = requests.get("https://api.pota.app/spot/activator/")
@@ -70,13 +66,13 @@ pota_response = requests.get("https://api.pota.app/spot/activator/")
 # Make sure we were successful in our GET
 if pota_response.status_code == 200:
 
-  # GPut our response in a List
+  # Put our response in a List
   spots:List[datum.PotaSpots] = [datum.PotaSpots(**spot) for spot in pota_response.json()]
 
-  logger.info(f"Found a total of {len(spots)} unfiltered spots")
+  myLogger.logger.info(f"Found a total of {len(spots)} unfiltered spots")
 
   # Our search criteria
-  needed_states = {datum.USState.US_RI, datum.USState.US_HI}
+  needed_states = {datum.USState.US_RI, datum.USState.US_HI, datum.USState.US_NH}
   wanted_modes = {datum.Mode.FT4, datum.Mode.FT8}
   now = datetime.now(timezone.utc) # Recall that POTA uses GMT (UTC 0) so adjust our current datetime to that
   # Interested in spots that happened within the last POTA_SEARCH_MINUTES
@@ -91,9 +87,9 @@ if pota_response.status_code == 200:
   ]
 
   if len(spots_found) == 1:
-    logger.info(f"Found 1 spot matching search criteria")
+    myLogger.logger.info(f"Found 1 spot matching search criteria")
   else:
-    logger.info(f"Found {len(spots_found)} spots matching search criteria")
+    myLogger.logger.info(f"Found {len(spots_found)} spots matching search criteria")
 
   # Well, do we have any spots in our filtered list?
   if spots_found:
@@ -106,10 +102,11 @@ if pota_response.status_code == 200:
 
     # Grab our key for the QRZ API call, no need to grab it repeatedly
     # Will need to store this key as it's good for 24-hours
-    qrz_key = datum.get_qrz_key()
+    qrz_key = datum.get_qrz_callsign_key() # datum.get_qrz_key()
 
     # Piece together our notification
     for spot_found in spots_found:
+
       # Handle this better as we are getting a naive datetime from the POTA API so fix that
       difference = now - datum._ensure_aware(spot_found.SpotTime)
       spots_detail.append(
@@ -120,15 +117,19 @@ if pota_response.status_code == 200:
         f"was at {spot_found.Name} "
         f"on {datum.get_ham_band(spot_found.Frequency)} (-"
         f"{time.strftime("%M:%S", time.gmtime(difference.total_seconds()))})")
-      logger.info(spots_detail[-1]);
+      myLogger.logger.info(spots_detail[-1]);
 
     # Send off our Pushover notification
     datum.send_pushover(spots_detail)
 
 # Ruh-roh Scooby, we couldn't GET the data
 else:
-  print(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
-  logger.error(f"ERROR: {pota_response.status_code}: {pota_response.reason}")
+  myLogger.logger.error(f"ERROR: {pota_response.status_code}: {pota_response.reason} {pota_response.text}")
 
-logger.info('-----------------------------------------------------')
-logger.info('')
+
+#with shelve.open(filename='qrz', flag='r') as db:
+#  print(db["qrz_key_date"] )
+#  print(db["qrz_key_value"] )
+
+myLogger.logger.info('----------------------------------------------------------------------')
+myLogger.logger.info('')
