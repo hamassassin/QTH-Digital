@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import os
 import xml.etree.ElementTree as ET
 from enum import Enum
-import logging
+import myLogger
 
 
 # The QRZ callsign API
@@ -28,15 +28,15 @@ def get_qrz_callsign_key():
     if 'qrz_key_date' not in db or 'qrz_key_value' not in db:
       db["qrz_key_date"] = today
       db["qrz_key_value"] = get_qrz_key()
-      logger.info("QRZ: Key Date and Key Value created as no db")
+      myLogger.logger.info("QRZ: Key Date and Key Value created as no db")
     else:
       # See if we have to update our key or not
       if db["qrz_key_date"] != today:
-        logger.info(f"QRZ: key_value updated as day changed from {db["qrz_key_date"]} to {today}")
+        myLogger.logger.info(f"QRZ: key_value updated as day changed from {db["qrz_key_date"]} to {today}")
         db["qrz_key_date"] = today
         db["qrz_key_value"] = get_qrz_key()
       else:
-        logger.info("QRZ: No change for key_value as still on same day")
+        myLogger.logger.info("QRZ: No change for key_value as still on same day")
     return db["qrz_key_value"]
 
 
